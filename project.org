@@ -1,0 +1,114 @@
+Data scientists and programmers in q/kdb+ ([[https://code.kx.com/q4m3/][kdb+: world's fastest database; q: functional programming language of APL heritage]]) can leverage [[https://orgmode.org/worg/org-contrib/babel/][Babel]],  an existing Emacs framework for [[https://en.wikipedia.org/wiki/Literate_programming][literate programming]] and [[https://en.wikipedia.org/wiki/Reproducibility#Reproducible_research][reproducible research]].
+
+=ob-q= provides Org-Babel support for evaluating q source code within [[https://orgmode.org/worg/][.org documents]]. q source code blocks in Org Mode can be used to define functions, filter and analyze data, create graphics and figures, and produce reproducible research papers using a style similar to literate programming.
+
+* Setting up Babel support for q language
+
+To develop support for q, take a [[https://code.orgmode.org/bzg/worg/raw/master/org-contrib/babel/ob-template.el][ob-template.el]] as a starting point and implement integration with [[https://github.com/psaris/q-mode][q-mode]] in the prepared [[ob-q.el]] file. Inspiration from other languages and guide how to develop support for new languages can be found here: https://orgmode.org/worg/org-contrib/babel/languages.html#fn.1.
+
+** Executing source code
+
+Org captures the results of the source code block evaluation and inserts them in the Org file, right after the source code block. https://www.gnu.org/software/emacs/manual/html_node/org/Evaluating-code-blocks.html#Evaluating-code-blocks
+
+If =:session= argument is not provided, one possible execution strategy is to pipe the string into a fresh invocation of q program. See =org-babel-eval= and https://stackoverflow.com/questions/10405461/org-babel-new-language
+
+If =:results value= is provided:
+#+BEGIN_SRC shell
+echo -e -n "1+1\na:1\nb:2\na+b" | q
+#+END_SRC
+
+#+RESULTS:
+: 2
+
+If =:results value= is provided, append =\n= to the string so that intermediate results are printed:
+#+BEGIN_SRC shell
+echo -e -n "1+1\na:1\nb:2\na+b\n" | q
+#+END_SRC
+
+#+RESULTS:
+: 2
+: 3
+
+*** session-based evaluation
+
+It is possible to run an interactive session as an "inferior process" within Emacs. This means that an environment is created containing data objects that persist between different source code blocks. Babel supports evaluation of code within such sessions with the =:session= header argument. If the header argument is given a value then that will be used as the name of the session. Thus, it is possible to run separate simultaneous sessions in the same language. Sessions can be used as one way to preserve state accessed by several source codeblocks. In session mode, each block is run in the same long-running q interactive interpreter session, as if you had typed that block into q. You can have multiple sessions, all independent.
+
+The function =org-babel-pop-to-session= can be used to switch to the process buffer running the session.
+
+If =:session= argument is provided, perform evaluation using a persistently running inferior process to which the code block is submitted
+#+begin_src q :session
+(*\) 1+til 4
+#+end_src
+
+You can name the session if you wish to separate state.
+#+begin_src q :session mysession
+([a:1 2] b:3 4.;c:`d`e)
+#+end_src
+
+You can pass the name of existing Q-Shell buffer (without the surrounding asterisks - *) as a session name in order to use it for the session.
+#+begin_src q :session q-localhost
+1+1
+#+end_src
+
+You can pass connection string of remote instance as a session name. If the Q-Shell buffer =*qcon-host:port*= already exists, it will be used for the session. If it doesn't exist, it will be created with qcon:
+
+#+begin_src q :session host:5000
+1+1
+#+end_src
+
+** Exporting source code
+
+The exported document should by default contain \code\ from the code blocks. It's possible to change this to export just the \results\ of the evaluation, or \both\ the code and results, or \none\. https://www.gnu.org/software/emacs/manual/html_node/org/Exporting-code-blocks.html#Exporting-code-blocks
+
+** Extracting source code
+
+The q source code from the blocks can be extracted (tangled) into one or multiple q files. https://www.gnu.org/software/emacs/manual/html_node/org/Extracting-source-code.html#Extracting-source-code
+
+** TODO [#C] Nice to have:
+
+*** Show REPL
+With the point in a q source block, command to show q instance buffer of the session.
+
+*** Async execution
+Asynchronous execution is supported:
+
+#+begin_src q :session :async t
+\sleep 3
+1+1
+#+end_src
+
+*** Variables and tables input
+Support providing variables and tables to code
+
+#+TBLNAME: mytable
+| a | 1 | 2 |
+| b | 2 | 3 |
+| c | 3 | 4 |
+
+#+begin_src q :session :exports both :var x=2 :var data=mytable
+(x; data)
+#+end_src
+
+
+*** Error buffer
+If evaluated code produces an error, this will be displayed nicely in a buffer using traceback support.
+
+Stdout/err from code evaluation is displayed in a popup buffer. This is great for debugging or getting verbose output that is best left out of documents (e.g progress updates). If you wish to capture output in your document use the =:results output= SRC block header.
+
+*** org settings
+#+BEGIN_SRC elisp
+(add-hook 'org-babel-after-execute-hook 'org-display-inline-images 'append) ;; display/update images in the buffer after I evaluate
+#+END_SRC
+
+If export with the LaTeX backend using the =minted= package for source block highlighting fails with the error
+
+#+begin_quote
+Error: no lexer for alias 'q' found
+#+end_quote
+
+#+BEGIN_SRC elisp
+(add-to-list 'org-latex-minted-langs q)
+#+END_SRC
+
+*** graphics
+any files generated to =ob-q-resources-dir=, unless =:file /path/file.ext= is specified
