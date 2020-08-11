@@ -2,6 +2,7 @@
 #+TITLE: The tutorial of ob-q
 #+OPTIONS: toc:2
 #+Startup: noindent
+#+PROPERTY: header-args :exports both
 #+LATEX_HEADER: % copied from lstlang1.sty, to add new language support to Emacs Lisp.
 #+LATEX_HEADER: \lstdefinelanguage{elisp}[]{lisp} {}
 #+LATEX_HEADER: \lstloadlanguages{elisp}
@@ -29,6 +30,13 @@ Firstly please make sure =ob-q.el= is in you load path, then you can enable supp
          '((q . t))))
 #+END_SRC
 * Executing source code
+The language name should be =q= for a =q= code block.
+#+BEGIN_EXAMPLE
+   ,#+BEGIN_SRC q
+    1+1
+   ,#+END_SRC
+#+END_EXAMPLE
+
 ** Executing without a session
 If no session argument provided, we will try to send codes to a =q= command directly, just like it is in a shell command.
 #+begin_src q
