@@ -60,4 +60,4 @@ echo -e -n "1+1\na:1\nb:2\na+b" | q
 
 But of course a code block directly specified with =q= is more convenient.
 
-The command to execute is specified by Emacs Lisp varaible [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
+The command to execute is specified by Emacs Lisp variable [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
