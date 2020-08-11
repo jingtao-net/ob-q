@@ -1,0 +1,171 @@
+# -*- encoding:utf-8 Mode: POLY-ORG; org-src-preserve-indentation: t; -*- ---
+#+TITLE: Org-Babel support for evaluating q source code within .org documents
+#+OPTIONS: toc:2
+#+Startup: noindent
+#+LATEX_HEADER: % copied from lstlang1.sty, to add new language support to Emacs Lisp.
+#+LATEX_HEADER: \lstdefinelanguage{elisp}[]{lisp} {}
+#+LATEX_HEADER: \lstloadlanguages{elisp}
+#+PROPERTY: header-args :results silent
+#+PROPERTY: literate-lang elisp
+#+PROPERTY: literate-load yes
+
+* Table of Contents                                            :TOC:noexport:
+- [[#preparation][Preparation]]
+  - [[#reference][reference]]
+  - [[#load-dependencies][load dependencies]]
+  - [[#optionally-define-a-file-extension-for-this-language][optionally define a file extension for this language]]
+  - [[#optionally-declare-default-header-arguments][optionally declare default header arguments]]
+- [[#code-block-body-expansion][Code Block Body Expansion]]
+- [[#source-code-execution][Source Code Execution]]
+  - [[#entrance-routine][entrance routine]]
+  - [[#executing-without-a-session][Executing without a session]]
+  - [[#session-based-evaluation][Session based evaluation]]
+- [[#helpful-routines][helpful routines]]
+  - [[#convert-an-elisp-var-into-a-string-of-q-source-code][Convert an elisp var into a string of q source code]]
+  - [[#table][table]]
+- [[#release-current-library][Release current library]]
+
+* Preparation
+** reference
+- [[https://orgmode.org/worg/org-contrib/babel/intro.html#org0d774e6][Babel: Introduction]]
+** load dependencies
+#+BEGIN_SRC elisp
+(require 'ob)
+(require 'ob-ref)
+(require 'ob-comint)
+(require 'ob-eval)
+#+END_SRC
+** optionally define a file extension for this language
+#+BEGIN_SRC elisp
+(add-to-list 'org-babel-tangle-lang-exts '("q" . "q"))
+#+END_SRC
+** optionally declare default header arguments
+#+BEGIN_SRC elisp
+(defvar org-babel-default-header-args:q '())
+#+END_SRC
+
+
+* Code Block Body Expansion
+If there are any predefined variables in =params=, we will add them in front of =body=.
+#+BEGIN_SRC elisp
+(defun org-babel-expand-body:q (body params)
+  "Expand BODY according to PARAMS, return the expanded body.
+Argument BODY: the code body
+Argument PARAMS: the input parameters."
+  (require 'q-mode)
+  (let ((vars (cdr (assoc :vars params))))
+    (concat
+     (mapconcat ;; define any variables
+      (lambda (pair)
+        (format "%s=%S" (car pair) (org-babel-q-var-to-q (cdr pair))))
+      vars "\n")
+     "\n" body "\n")))
+#+END_SRC
+* Source Code Execution
+** entrance routine
+This is the main function which is called to evaluate a code block.
+
+This function will evaluate the body of the source code and
+return the results as emacs-lisp depending on the value of the
+=:results= header argument
+
+All header arguments specified by the user will be available in the =PARAMS= variable.
+#+BEGIN_SRC elisp
+(defun org-babel-execute:q (body params)
+  "Execute a block of q code with org-babel.
+This function is called by `org-babel-execute-src-block',
+Argument BODY: the code body
+Argument PARAMS: the input parameters."
+  (let* (;; set the session if the session variable is non-nil
+         (session (org-babel-q-initiate-session (cdr (assoc :session params))))
+         ;; (result-type (cdr (assoc :result-type params)))
+         ;; expand the body
+         (full-body (org-babel-expand-body:q body params))
+         (results (if session
+                      (org-babel-q-execute-in-session session full-body params)
+                    (org-babel-q-execute-without-session full-body params))))
+    (when results
+      (let ((result-params (cdr (assq :result-params params))))
+        (org-babel-result-cond result-params
+          results
+          (let ((tmp-file (org-babel-temp-file "q-")))
+            (with-temp-file tmp-file (insert results))
+            (org-babel-import-elisp-from-file tmp-file)))))))
+#+END_SRC
+** Executing without a session
+We will create a temporary file to hold the code body then send it to a new q process created by [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]].
+#+BEGIN_SRC elisp
+(defun org-babel-q-execute-without-session (full-body params)
+  "Execute code body without a session.
+Argument FULL-BODY: the expanded code body
+Argument PARAMS: the input parameters."
+  (let* ((stdin-file (org-babel-temp-file "q-stdin-")))
+    (with-temp-file stdin-file
+      (insert full-body))
+    (with-temp-buffer
+      (call-process-shell-command q-program stdin-file (current-buffer))
+      (buffer-string))))
+#+END_SRC
+
+** Session based evaluation
+*** prepare
+This function should be used to assign any variables in params in
+the context of the session environment.
+#+BEGIN_SRC elisp
+(defun org-babel-prep-session:q (session params)
+  "Prepare SESSION according to the header arguments specified in PARAMS.
+Arguments SESSION: the session name.
+Arguments PARAMS: the input parameters."
+  )
+#+END_SRC
+*** initiate
+#+BEGIN_SRC elisp
+(defun org-babel-q-initiate-session (&optional session)
+  "If there is not a current inferior-process-buffer in SESSION then create.
+Return the initialized session.
+Arguments session: the session name."
+  (unless (string= session "none")
+    ))
+#+END_SRC
+* helpful routines
+** Convert an elisp var into a string of q source code
+#+BEGIN_SRC elisp
+(defun org-babel-q-var-to-q (var)
+  "Convert an var into q source code to specify it with the same value.
+Argument VAR: a q varaible."
+  (format "%S" var))
+#+END_SRC
+** table
+#+BEGIN_SRC elisp
+(defun org-babel-q-table-if-possible (results)
+  "Convert results into an Emacs Lisp table if possible.
+Argument RESULTS: the results."
+  )
+#+END_SRC
+
+* Release current library
+And when a new version of [[./ob-q.el]] can release from this file,
+the following code should execute.
+#+BEGIN_SRC elisp :load no
+(literate-elisp-tangle
+ "ob-q.org"
+ :header ";;; ob-q.el --- A library to manage remote q sessions with Helm and q-mode  -*- lexical-binding: t; -*-
+
+;; URL: https://github.com/emacs-q/ob-q.el
+;; Package-Requires: ((emacs \"26.1\") (cl-lib \"0.6\") (org \"9.3\") (q-mode \"0.1\") (cl-lib \"1.0\"))
+
+;;; Requirements:
+
+;; ob-q requires the installation of program q and qcon, and additional q-mode.el for session support and optional helm-q.el
+;; for a better session management interface.
+
+;;; Commentary:
+
+;; ob-q is an Emacs Lisp library to provide Org-Babel support for evaluating q source code within .org documents.
+
+;;; Code:
+"
+                 :tail "(provide 'ob-q)
+;;; ob-q.el ends here
+")
+#+END_SRC

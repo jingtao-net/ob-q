@@ -1,0 +1,56 @@
+# -*- encoding:utf-8 Mode: POLY-ORG; org-src-preserve-indentation: t; -*- ---
+#+TITLE: The tutorial of ob-q
+#+OPTIONS: toc:2
+#+Startup: noindent
+#+LATEX_HEADER: % copied from lstlang1.sty, to add new language support to Emacs Lisp.
+#+LATEX_HEADER: \lstdefinelanguage{elisp}[]{lisp} {}
+#+LATEX_HEADER: \lstloadlanguages{elisp}
+#+PROPERTY: literate-lang elisp
+#+PROPERTY: literate-load yes
+* Table of Contents                                            :TOC:noexport:
+- [[#introduction][Introduction]]
+- [[#installation][Installation]]
+- [[#executing-source-code][Executing source code]]
+  - [[#executing-without-a-session][Executing without a session]]
+
+* Introduction
+Data scientists and programmers in q/kdb+ ([[https://code.kx.com/q4m3/][kdb+: world's fastest database; q: functional programming language of APL heritage]]) 
+can leverage [[https://orgmode.org/worg/org-contrib/babel/][Babel]], an existing Emacs framework for [[https://en.wikipedia.org/wiki/Literate_programming][literate programming]] and [[https://en.wikipedia.org/wiki/Reproducibility#Reproducible_research][reproducible research]].
+
+=ob-q= provides Org-Babel support for evaluating q source code within [[https://orgmode.org/worg/][.org documents]].
+Q source code blocks in Org Mode can be used to define functions, filter and analyze data, create graphics and figures,
+and produce reproducible research papers using a style similar to literate programming.
+* Installation
+Firstly please make sure =ob-q.el= is in you load path, then you can enable support for Q like this(see [[https://orgmode.org/worg/org-contrib/babel/languages.html#configure][configure active languages]]):
+#+BEGIN_SRC elisp
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ (append org-babel-load-languages
+         '((q . t))))
+#+END_SRC
+* Executing source code
+** Executing without a session
+If no session argument provided, we will try to send codes to a =q= command directly, just like it is in a shell command.
+#+begin_src q
+1+1
+a:1
+b:2
+a+b
+#+end_src
+
+#+RESULTS:
+| 2 |
+| 3 |
+
+The evaluating of above codes is just like the following =shell= code block.
+#+begin_src shell
+echo -e -n "1+1\na:1\nb:2\na+b" | q
+#+end_src
+
+#+RESULTS:
+| 2 |
+| 3 |
+
+But of course a code block directly specified with =q= is more convenient.
+
+The command to execute is specified by Emacs Lisp varaible [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
