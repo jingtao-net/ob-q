@@ -39,23 +39,23 @@ The language name should be =q= for a =q= code block.
 
 ** Executing without a session
 If no session argument provided, we will try to send codes to a =q= command directly, just like it is in a shell command.
-#+begin_src q
+#+begin_src q :exports results
 1+1
 a:1
 b:2
 a+b
 #+end_src
 
-,#+RESULTS:
+#+RESULTS:
 | 2 |
 | 3 |
 
 The evaluating of above codes is just like the following =shell= code block.
-#+begin_src shell
+#+begin_src shell :exports results
 echo -e -n "1+1\na:1\nb:2\na+b" | q
 #+end_src
 
-,#+RESULTS:
+#+RESULTS:
 | 2 |
 | 3 |
 
