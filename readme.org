@@ -33,7 +33,7 @@ Firstly please make sure =ob-q.el= is in you load path, then you can enable supp
 The language name should be =q= for a =q= code block.
 #+BEGIN_EXAMPLE
    ,#+BEGIN_SRC q
-    1+1
+   1+1
    ,#+END_SRC
 #+END_EXAMPLE
 
@@ -46,7 +46,7 @@ b:2
 a+b
 #+end_src
 
-#+RESULTS:
+,#+RESULTS:
 | 2 |
 | 3 |
 
@@ -55,7 +55,7 @@ The evaluating of above codes is just like the following =shell= code block.
 echo -e -n "1+1\na:1\nb:2\na+b" | q
 #+end_src
 
-#+RESULTS:
+,#+RESULTS:
 | 2 |
 | 3 |
 
