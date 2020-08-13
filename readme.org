@@ -63,9 +63,20 @@ But of course a code block directly specified with =q= is more convenient.
 
 The command to execute is specified by Emacs Lisp variable [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
 ** Executing in a session
-If =:session= argument is provided, perform evaluation using [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] created by [[https://github.com/psaris/q-mode/][q-mode]],
+If =:session= argument is provided without additional value, =ob-q= will perform evaluation using [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] created by [[https://github.com/psaris/q-mode/][q-mode]],
 if no active buffer exists, we will try to create one via [[https://github.com/emacs-q/helm-q.el][helm-q]].
-#+begin_src q :session
+
+For example:
+#+begin_example
+   ,#+BEGIN_SRC q :session
+    1+1
+    a:1
+    b:2
+    a+b
+   ,#+END_SRC
+#+end_example
+
+#+begin_src q :session :exports results
 1+1
 a:1
 b:2
@@ -75,3 +86,5 @@ a+b
 #+RESULTS:
 | 2 |
 | 3 |
+
+# If =:session= argument has a value for it, 
