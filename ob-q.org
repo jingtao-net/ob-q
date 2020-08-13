@@ -24,7 +24,6 @@
   - [[#how-to-show-result][How to show result]]
 - [[#helpful-routines][helpful routines]]
   - [[#convert-an-elisp-var-into-a-string-of-q-source-code][Convert an elisp var into a string of q source code]]
-  - [[#table][table]]
   - [[#remove-duplicated-prompt-in-result][remove duplicated prompt in result]]
 - [[#release-current-library][Release current library]]
 
@@ -37,6 +36,8 @@
 (require 'ob-ref)
 (require 'ob-comint)
 (require 'ob-eval)
+(require 'q-mode)
+(require 'helm-q)
 #+END_SRC
 ** String to indicate that evaluation has completed.
 #+BEGIN_SRC elisp
@@ -115,7 +116,7 @@ The initialization will try to return a Q-Shell buffer created by [[https://gith
 - if session is provided with a name, then
   - try to find out any matched Q-Shell buffer and return it.
   - otherwise we will try to create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]] with this name to filter out available servers.
-  - 
+  -
 This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp
 (defun org-babel-q-initiate-session (session)
@@ -152,7 +153,7 @@ Arguments PARAMS: the input parameters."
 Argument SESSION-BUFFER: the session associated buffer.
 Argument FULL-BODY: the expanded code body
 Argument PARAMS: the input parameters."
-  (let ((results-list 
+  (let ((results-list
          (org-babel-comint-with-output
              (session-buffer org-babel-q-eoe t full-body)
            (dolist (code (list full-body org-babel-q-eoe))
@@ -182,13 +183,6 @@ Argument PARAMS: the input parameters."
 Argument VAR: a q varaible."
   (format "%S" var))
 #+END_SRC
-** table
-#+BEGIN_SRC elisp
-(defun org-babel-q-table-if-possible (results)
-  "Convert results into an Emacs Lisp table if possible.
-Argument RESULTS: the results."
-  )
-#+END_SRC
 ** remove duplicated prompt in result
 The =comint-prompt-regexp= may got printed for many times in the start of one line,
 we have to remove them in the results.
@@ -201,11 +195,11 @@ Argument RESULTS-LIST: the list of result string."
   (let ((prompt-regexp-to-remove (with-current-buffer session-buffer
                                    comint-prompt-regexp)))
     (with-output-to-string
-      (loop for text in results-list
-            until (string-match org-babel-q-eoe text)
-            do (while (string-match prompt-regexp-to-remove text)
-                 (setf text (replace-match "" nil nil text)))
-            (princ text)))))
+      (cl-loop for text in results-list
+               until (string-match org-babel-q-eoe text)
+               do (while (string-match prompt-regexp-to-remove text)
+                    (setf text (replace-match "" nil nil text)))
+               (princ text)))))
 #+END_SRC
 * Release current library
 And when a new version of [[./ob-q.el]] can release from this file,
@@ -226,8 +220,6 @@ the following code should execute.
 ;;; Commentary:
 
 ;; ob-q is an Emacs Lisp library to provide Org-Babel support for evaluating q source code within .org documents.
-
-;;; Code:
 "
                  :tail "(provide 'ob-q)
 ;;; ob-q.el ends here
