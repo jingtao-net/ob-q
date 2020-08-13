@@ -27,6 +27,8 @@
 (require 'ob-comint)
 (require 'ob-eval)
 
+(defvar org-babel-q-eoe "\"org-babel-q-eoe\"" "String to indicate that evaluation has completed.")
+
 (add-to-list 'org-babel-tangle-lang-exts '("q" . "q"))
 
 (defvar org-babel-default-header-args:q '())
@@ -49,21 +51,14 @@ Argument PARAMS: the input parameters."
 This function is called by `org-babel-execute-src-block',
 Argument BODY: the code body
 Argument PARAMS: the input parameters."
-  (let* (;; set the session if the session variable is non-nil
-         (session (org-babel-q-initiate-session (cdr (assoc :session params))))
-         ;; (result-type (cdr (assoc :result-type params)))
-         ;; expand the body
+  (let* (;; expand the body
          (full-body (org-babel-expand-body:q body params))
-         (results (if session
-                      (org-babel-q-execute-in-session session full-body params)
-                    (org-babel-q-execute-without-session full-body params))))
-    (when results
-      (let ((result-params (cdr (assq :result-params params))))
-        (org-babel-result-cond result-params
-          results
-          (let ((tmp-file (org-babel-temp-file "q-")))
-            (with-temp-file tmp-file (insert results))
-            (org-babel-import-elisp-from-file tmp-file)))))))
+         (session-buffer (org-babel-prep-session:q params))
+         (raw-results (if session-buffer
+                          (org-babel-q-execute-in-session session-buffer full-body params)
+                        (org-babel-q-execute-without-session full-body params))))
+    (when raw-results
+      (org-babel-transfer-results:q raw-results params))))
 
 (defun org-babel-q-execute-without-session (full-body params)
   "Execute code body without a session.
@@ -76,18 +71,53 @@ Argument PARAMS: the input parameters."
       (call-process-shell-command q-program stdin-file (current-buffer))
       (buffer-string))))
 
-(defun org-babel-prep-session:q (session params)
+(defun org-babel-q-initiate-session (session)
+  "If there is not a current inferior-process-buffer in `SESSION'
+then create.  Return the initialized session buffer.
+Argument SESSION: session argument."
+  (cond ((null session)
+         ;; try to use current `q-active-buffer'.
+         (if (and q-active-buffer
+                  (process-live-p (get-buffer-process q-active-buffer)))
+             q-active-buffer
+           (call-interactively 'helm-q)
+           q-active-buffer))
+        ((string= "none" session)
+         nil)
+        (t )))
+
+(defun org-babel-prep-session:q (params)
   "Prepare SESSION according to the header arguments specified in PARAMS.
 Arguments SESSION: the session name.
 Arguments PARAMS: the input parameters."
-  )
+  (let* ((session (cdr (assoc :session params)))
+         (session-buffer (org-babel-q-initiate-session session)))
+    session-buffer))
 
-(defun org-babel-q-initiate-session (&optional session)
-  "If there is not a current inferior-process-buffer in SESSION then create.
-Return the initialized session.
-Arguments session: the session name."
-  (unless (string= session "none")
-    ))
+(defun org-babel-q-execute-in-session (session-buffer full-body params)
+  "Execute code body in a session.
+Argument SESSION-BUFFER: the session associated buffer.
+Argument FULL-BODY: the expanded code body
+Argument PARAMS: the input parameters."
+  (let ((results-list 
+         (org-babel-comint-with-output
+             (session-buffer org-babel-q-eoe t full-body)
+           (dolist (code (list full-body org-babel-q-eoe))
+             (insert (org-babel-chomp code))
+             (comint-send-input nil t)))))
+    (org-babel-q-remove-prompts-in-result session-buffer results-list)))
+
+(defun org-babel-transfer-results:q (results params)
+  "Convert raw results to Emacs Lisp Result.
+This function is called by `org-babel-execute-src-block',
+Argument RESULTS: the raw results.
+Argument PARAMS: the input parameters."
+  (let ((result-params (cdr (assq :result-params params))))
+    (org-babel-result-cond result-params
+      results
+      (let ((tmp-file (org-babel-temp-file "q-")))
+        (with-temp-file tmp-file (insert results))
+        (org-babel-import-elisp-from-file tmp-file)))))
 
 (defun org-babel-q-var-to-q (var)
   "Convert an var into q source code to specify it with the same value.
@@ -98,6 +128,19 @@ Argument VAR: a q varaible."
   "Convert results into an Emacs Lisp table if possible.
 Argument RESULTS: the results."
   )
+
+(defun org-babel-q-remove-prompts-in-result (session-buffer results-list)
+  "Remove duplicated prompts in result.
+Argument SESSION-BUFFER: the session associated buffer.
+Argument RESULTS-LIST: the list of result string."
+  (let ((prompt-regexp-to-remove (with-current-buffer session-buffer
+                                   comint-prompt-regexp)))
+    (with-output-to-string
+      (loop for text in results-list
+            until (string-match org-babel-q-eoe text)
+            do (while (string-match prompt-regexp-to-remove text)
+                 (setf text (replace-match "" nil nil text)))
+            (princ text)))))
 
 
 (provide 'ob-q)

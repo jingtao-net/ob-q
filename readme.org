@@ -12,6 +12,7 @@
 - [[#installation][Installation]]
 - [[#executing-source-code][Executing source code]]
   - [[#executing-without-a-session][Executing without a session]]
+  - [[#executing-in-a-session][Executing in a session]]
 
 * Introduction
 Data scientists and programmers in q/kdb+ ([[https://code.kx.com/q4m3/][kdb+: world's fastest database; q: functional programming language of APL heritage]]) 
@@ -61,3 +62,16 @@ echo -e -n "1+1\na:1\nb:2\na+b" | q
 But of course a code block directly specified with =q= is more convenient.
 
 The command to execute is specified by Emacs Lisp variable [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
+** Executing in a session
+If =:session= argument is provided, perform evaluation using [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] created by [[https://github.com/psaris/q-mode/][q-mode]],
+if no active buffer exists, we will try to create one via [[https://github.com/emacs-q/helm-q.el][helm-q]].
+#+begin_src q :session
+1+1
+a:1
+b:2
+a+b
+#+end_src
+
+#+RESULTS:
+| 2 |
+| 3 |
