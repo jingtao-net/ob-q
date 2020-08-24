@@ -162,13 +162,17 @@ Argument PARAMS: the input parameters."
     (org-babel-q-remove-prompts-in-result session-buffer results-list)))
 #+END_SRC
 ** How to show result
+Please note that if [[https://orgmode.org/manual/Results-of-Evaluation.html][result]] type is =value=, we will only collect the last valid output line as results.
 #+BEGIN_SRC elisp
 (defun org-babel-transfer-results:q (results params)
   "Convert raw results to Emacs Lisp Result.
 This function is called by `org-babel-execute-src-block',
 Argument RESULTS: the raw results.
 Argument PARAMS: the input parameters."
-  (let ((result-params (cdr (assq :result-params params))))
+  (let ((result-params (cdr (assq :result-params params)))
+        (results (string-trim results)))
+    (when (eq 'value (cdr (assq :result-type params)))
+      (setf results (car (last (split-string results "[\n\r]+")))))
     (org-babel-result-cond result-params
       results
       (let ((tmp-file (org-babel-temp-file "q-")))

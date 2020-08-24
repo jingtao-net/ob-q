@@ -15,7 +15,7 @@
   - [[#executing-in-a-session][Executing in a session]]
 
 * Introduction
-Data scientists and programmers in q/kdb+ ([[https://code.kx.com/q4m3/][kdb+: world's fastest database; q: functional programming language of APL heritage]]) 
+Data scientists and programmers in q/kdb+ ([[https://code.kx.com/q4m3/][kdb+: world's fastest database; q: functional programming language of APL heritage]])
 can leverage [[https://orgmode.org/worg/org-contrib/babel/][Babel]], an existing Emacs framework for [[https://en.wikipedia.org/wiki/Literate_programming][literate programming]] and [[https://en.wikipedia.org/wiki/Reproducibility#Reproducible_research][reproducible research]].
 
 =ob-q= provides Org-Babel support for evaluating q source code within [[https://orgmode.org/worg/][.org documents]].
@@ -37,6 +37,17 @@ The language name should be =q= for a =q= code block.
    ,#+END_SRC
 #+END_EXAMPLE
 
+We will follow the [[https://orgmode.org/manual/Results-of-Evaluation.html][results]] evaluation in org mode, so the default result type is =value=, which will only return the valid result of the last
+command.
+
+You can specify the argument =:results= to =:output= to return the full output in a source code block like this
+#+begin_example
+   ,#+BEGIN_SRC q :results output
+   1+1
+   2+3
+   ,#+END_SRC
+#+end_example
+
 ** Executing without a session
 If no session argument provided, we will try to send codes to a =q= command directly, just like it is in a shell command.
 #+begin_example
@@ -55,8 +66,7 @@ a+b
 #+end_src
 
 #+RESULTS:
-| 2 |
-| 3 |
+: 3
 
 The evaluating of above codes is just like the following =shell= code block.
 #+begin_example
@@ -73,7 +83,8 @@ echo -e -n "1+1\na:1\nb:2\na+b" | q
 | 2 |
 | 3 |
 
-But of course a code block directly specified with =q= is more convenient.
+But of course a code block directly specified with =q= is more convenient but it will only return one output
+(as argument =:results= is =value= by default).
 
 The command to execute is specified by Emacs Lisp variable [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
 ** Executing in a session
@@ -101,4 +112,4 @@ a+b
 | 2 |
 | 3 |
 
-# If =:session= argument has a value for it, 
+# If =:session= argument has a value for it,

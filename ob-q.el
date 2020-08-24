@@ -112,7 +112,10 @@ Argument PARAMS: the input parameters."
 This function is called by `org-babel-execute-src-block',
 Argument RESULTS: the raw results.
 Argument PARAMS: the input parameters."
-  (let ((result-params (cdr (assq :result-params params))))
+  (let ((result-params (cdr (assq :result-params params)))
+        (results (string-trim results)))
+    (when (eq 'value (cdr (assq :result-type params)))
+      (setf results (car (last (split-string results "[\n\r]+")))))
     (org-babel-result-cond result-params
       results
       (let ((tmp-file (org-babel-temp-file "q-")))
