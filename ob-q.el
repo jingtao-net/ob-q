@@ -71,28 +71,30 @@ Argument PARAMS: the input parameters."
       (call-process-shell-command q-program stdin-file (current-buffer))
       (buffer-string))))
 
-(defun org-babel-q-initiate-session (session)
+(defun org-babel-q-initiate-session (params)
   "If there is not a current inferior-process-buffer in `SESSION'
 then create.  Return the initialized session buffer.
 Argument SESSION: session argument."
-  (cond ((null session)
-         ;; try to use current `q-active-buffer'.
-         (if (and q-active-buffer
-                  (process-live-p (get-buffer-process q-active-buffer)))
+  (let ((session-list (assoc :session params))
+        (session (if session-list
+                   (cdr session-list)
+                   "none")))
+    (cond ((null session)
+           ;; try to use current `q-active-buffer'.
+           (if (and q-active-buffer
+                    (process-live-p (get-buffer-process q-active-buffer)))
              q-active-buffer
-           (call-interactively 'helm-q)
-           q-active-buffer))
-        ((string= "none" session)
-         nil)
-        (t )))
+             (call-interactively 'helm-q)
+             q-active-buffer))
+          ((string= "none" session)
+           nil)
+          (t ))))
 
 (defun org-babel-prep-session:q (params)
   "Prepare SESSION according to the header arguments specified in PARAMS.
 Arguments SESSION: the session name.
 Arguments PARAMS: the input parameters."
-  (let* ((session (cdr (assoc :session params)))
-         (session-buffer (org-babel-q-initiate-session session)))
-    session-buffer))
+  (org-babel-q-initiate-session params))
 
 (defun org-babel-q-execute-in-session (session-buffer full-body params)
   "Execute code body in a session.

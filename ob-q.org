@@ -119,20 +119,24 @@ The initialization will try to return a Q-Shell buffer created by [[https://gith
   -
 This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp
-(defun org-babel-q-initiate-session (session)
+(defun org-babel-q-initiate-session (params)
   "If there is not a current inferior-process-buffer in `SESSION'
 then create.  Return the initialized session buffer.
 Argument SESSION: session argument."
-  (cond ((null session)
-         ;; try to use current `q-active-buffer'.
-         (if (and q-active-buffer
-                  (process-live-p (get-buffer-process q-active-buffer)))
+  (let ((session-list (assoc :session params))
+        (session (if session-list
+                   (cdr session-list)
+                   "none")))
+    (cond ((null session)
+           ;; try to use current `q-active-buffer'.
+           (if (and q-active-buffer
+                    (process-live-p (get-buffer-process q-active-buffer)))
              q-active-buffer
-           (call-interactively 'helm-q)
-           q-active-buffer))
-        ((string= "none" session)
-         nil)
-        (t )))
+             (call-interactively 'helm-q)
+             q-active-buffer))
+          ((string= "none" session)
+           nil)
+          (t ))))
 #+END_SRC
 
 *** prepare
@@ -142,9 +146,7 @@ This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
   "Prepare SESSION according to the header arguments specified in PARAMS.
 Arguments SESSION: the session name.
 Arguments PARAMS: the input parameters."
-  (let* ((session (cdr (assoc :session params)))
-         (session-buffer (org-babel-q-initiate-session session)))
-    session-buffer))
+  (org-babel-q-initiate-session params))
 #+END_SRC
 *** execute
 #+BEGIN_SRC elisp
