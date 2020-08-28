@@ -120,9 +120,8 @@ The initialization will try to return a Q-Shell buffer created by [[https://gith
 This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp
 (defun org-babel-q-initiate-session (params)
-  "If there is not a current inferior-process-buffer in `SESSION'
-then create.  Return the initialized session buffer.
-Argument SESSION: session argument."
+  "Return the initialized session buffer.
+Argument PARAMS: the parameters for code block."
   (let ((session-list (assoc :session params))
         (session (if session-list
                    (cdr session-list)
