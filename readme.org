@@ -37,10 +37,10 @@ The language name should be =q= for a =q= code block.
    ,#+END_SRC
 #+END_EXAMPLE
 
-We will follow the [[https://orgmode.org/manual/Results-of-Evaluation.html][results]] evaluation in org mode, so the default result type is =value=, which will only return the valid result of the last
+We will follow the [[https://orgmode.org/manual/Results-of-Evaluation.html][results evaluation]] in org mode, so the default result type is =value=, which will only return the valid result of the last
 command.
 
-You can specify the argument =:results= to =:output= to return the full output in a source code block like this
+You can specify the argument =:results= to =output= to return the full output in a source code block like this
 #+begin_example
    ,#+BEGIN_SRC q :results output
    1+1
@@ -109,7 +109,6 @@ a+b
 #+end_src
 
 #+RESULTS:
-| 2 |
-| 3 |
+: 3
 
 # If =:session= argument has a value for it,
