@@ -72,9 +72,8 @@ Argument PARAMS: the input parameters."
       (buffer-string))))
 
 (defun org-babel-q-initiate-session (params)
-  "If there is not a current inferior-process-buffer in `SESSION'
-then create.  Return the initialized session buffer.
-Argument SESSION: session argument."
+  "Return the initialized session buffer.
+Argument PARAMS: the parameters for code block."
   (let* ((session-list (assoc :session params))
          (session (if session-list
                     (cdr session-list)
