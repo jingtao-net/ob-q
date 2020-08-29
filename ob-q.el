@@ -75,10 +75,10 @@ Argument PARAMS: the input parameters."
   "If there is not a current inferior-process-buffer in `SESSION'
 then create.  Return the initialized session buffer.
 Argument SESSION: session argument."
-  (let ((session-list (assoc :session params))
-        (session (if session-list
-                   (cdr session-list)
-                   "none")))
+  (let* ((session-list (assoc :session params))
+         (session (if session-list
+                    (cdr session-list)
+                    "none")))
     (cond ((null session)
            ;; try to use current `q-active-buffer'.
            (if (and q-active-buffer
