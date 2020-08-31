@@ -131,3 +131,18 @@ its Q-Shell buffer as this session name.
 
 #+RESULTS:
 : 2
+
+For example, if a session name =local-test2= can't match any running Q-Shell buffer or sessions in =helm-q=,
+we will create a new local instance and rename its buffer to session name surrounding with =*=.
+#+begin_example
+    ,#+begin_src q :session local-test2
+    1+1
+    ,#+end_src
+#+end_example
+
+#+begin_src q :session local-test2 :exports results
+1+1
+#+end_src
+
+#+RESULTS:
+: 2
