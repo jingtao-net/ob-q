@@ -86,7 +86,7 @@ Argument BODY: the code body
 Argument PARAMS: the input parameters."
   (let* (;; expand the body
          (full-body (org-babel-expand-body:q body params))
-         (session-buffer (org-babel-prep-session:q params))
+         (session-buffer (org-babel-prep-session:q (cdr (assoc :session params)) params))
          (raw-results (if session-buffer
                           (org-babel-q-execute-in-session session-buffer full-body params)
                         (org-babel-q-execute-without-session full-body params))))
@@ -110,42 +110,113 @@ Argument PARAMS: the input parameters."
 ** Session based evaluation
 *** initialization
 The initialization will try to return a Q-Shell buffer created by [[https://github.com/psaris/q-mode/][q-mode]] based on parameter =session=.
-- if session is provided without any name, then
-  - we will try to use [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] if it exists.
-  - otherwise we will create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]].
-- if session is provided with a name, then
-  - try to find out any matched Q-Shell buffer and return it.
-  - otherwise we will try to create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]] with this name to filter out available servers.
-  -
+**** if session has no name
+We will try to use [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] if it exists,
+otherwise we will create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]].
+#+BEGIN_SRC elisp
+(defun org-babel-q-initiate-session-without-name ()
+  "Handle condition when no session name."
+  ;; try to use current `q-active-buffer'.
+  (if (and q-active-buffer
+           (process-live-p (get-buffer-process q-active-buffer)))
+    q-active-buffer
+    (let ((helm-candidate-separator " ")
+          (helm-q-pass-required-p (and current-prefix-arg t)))
+      (helm :sources (helm-make-source "helm-q" 'helm-q-source)
+            :prompt "Please select a connection for current session: "
+            :buffer "*helm q*"))
+    q-active-buffer))
+#+END_SRC
+**** if session has a valid name
+We will try to find out any matched Q-Shell buffer and return it,
+otherwise we will try to create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]] with this name to filter out available servers.
+***** find out matched instances from helm-q based on session name
+There are two kind of collecting
+1. Based on =address= in each instance which matches the =session-name=.
+2. Use =session-name= as the matching string in =helm-q=.
+#+BEGIN_SRC elisp
+(defun org-babel-q-search-helm-q-instances (session-name)
+  "Search session-name in helm-q list.
+Argument SESSION-NAME: session name."
+  (let* ((helm-current-source (helm-make-source "helm-q" 'helm-q-source))
+         (helm-pattern session-name)
+         (candidates (progn (funcall (helm-attr 'init))
+                            (helm-attr 'candidates))))
+    (append (cl-loop for (nil . instance) in candidates
+                     if (search (cdr (assoc 'address instance)) session-name)
+                     collect instance)
+            (cl-loop for (candidate . instance) in candidates
+                     if (funcall (helm-attr 'match) candidate)
+                     collect instance))))
+#+END_SRC
+***** find out running Q-Shell buffer based on session name
+#+BEGIN_SRC elisp
+(defun org-babel-q-find-running-sessions (session-name)
+  "Find out running session.
+Argument SESSION-NAME: the session name."
+  (loop for buffer in (buffer-list)
+        for buffer-name = (buffer-name buffer)
+        if (with-current-buffer buffer
+             (and (equal 'q-shell-mode major-mode)
+                  (search session-name buffer-name)))
+          collect buffer-name))
+#+END_SRC
+***** main routine
+#+BEGIN_SRC elisp
+(cl-defun org-babel-q-initiate-session-by-name (session-name)
+  "Handle condition when there is a valid session name.
+Argument SESSION-NAME: the session name."
+  (let ((running-sessions (org-babel-q-find-running-sessions session-name)))
+    (when running-sessions
+      (return-from org-babel-q-initiate-session-by-name
+        (case (length running-sessions)
+          (1 (car running-sessions))
+          ;; select one from multiple sessions.
+          (2 (let* ((running-buffer nil)
+                    (helm-source `((:name . "Select valid running sessions")
+                                   (candidates . ,running-sessions)
+                                   (action . (lambda (candidate) (setf running-buffer candidate))))))
+               (helm :sources '(helm-source) :prompt "Please select a session: ")
+               running-buffer))))))
+  (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
+    (case (length matched-instances)
+      (0 (call-interactively 'q)
+         (with-current-buffer q-active-buffer
+           (rename-buffer (format "*%s*" session-name)))
+         q-active-buffer)
+      (1 (helm-q-source-action-qcon (car matched-instances))
+         q-active-buffer)
+      (t
+       (call-interactively 'helm-q)
+       q-active-buffer))))
+#+END_SRC
+**** entrance of initialization
 This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp
-(defun org-babel-q-initiate-session (params)
+(defun org-babel-q-initiate-session (session params)
   "Return the initialized session buffer.
+Argument SESSION: the session name.
 Argument PARAMS: the parameters for code block."
-  (let ((session-list (assoc :session params))
-        (session (if session-list
-                   (cdr session-list)
-                   "none")))
-    (cond ((null session)
-           ;; try to use current `q-active-buffer'.
-           (if (and q-active-buffer
-                    (process-live-p (get-buffer-process q-active-buffer)))
-             q-active-buffer
-             (call-interactively 'helm-q)
-             q-active-buffer))
-          ((string= "none" session)
-           nil)
-          (t ))))
+  (save-current-buffer
+    (let* ((session-list (assoc :session params))
+           (session (if session-list
+                      (cdr session-list)
+                      ;; default value for `:session', not depending on `org-babel-default-header-args'.
+                      "none")))
+      (cond ((null session)
+             (org-babel-q-initiate-session-without-name))
+            ((string= "none" session)
+             nil)
+            (t (org-babel-q-initiate-session-by-name session))))))
 #+END_SRC
-
 *** prepare
 This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp
-(defun org-babel-prep-session:q (params)
+(defun org-babel-prep-session:q (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS.
 Arguments SESSION: the session name.
 Arguments PARAMS: the input parameters."
-  (org-babel-q-initiate-session params))
+  (org-babel-q-initiate-session session params))
 #+END_SRC
 *** execute
 #+BEGIN_SRC elisp

@@ -53,7 +53,7 @@ Argument BODY: the code body
 Argument PARAMS: the input parameters."
   (let* (;; expand the body
          (full-body (org-babel-expand-body:q body params))
-         (session-buffer (org-babel-prep-session:q params))
+         (session-buffer (org-babel-prep-session:q (cdr (assoc :session params)) params))
          (raw-results (if session-buffer
                           (org-babel-q-execute-in-session session-buffer full-body params)
                         (org-babel-q-execute-without-session full-body params))))
@@ -71,29 +71,91 @@ Argument PARAMS: the input parameters."
       (call-process-shell-command q-program stdin-file (current-buffer))
       (buffer-string))))
 
-(defun org-babel-q-initiate-session (params)
-  "Return the initialized session buffer.
-Argument PARAMS: the parameters for code block."
-  (let ((session-list (assoc :session params))
-        (session (if session-list
-                   (cdr session-list)
-                   "none")))
-    (cond ((null session)
-           ;; try to use current `q-active-buffer'.
-           (if (and q-active-buffer
-                    (process-live-p (get-buffer-process q-active-buffer)))
-             q-active-buffer
-             (call-interactively 'helm-q)
-             q-active-buffer))
-          ((string= "none" session)
-           nil)
-          (t ))))
+(defun org-babel-q-initiate-session-without-name ()
+  "Handle condition when no session name."
+  ;; try to use current `q-active-buffer'.
+  (if (and q-active-buffer
+           (process-live-p (get-buffer-process q-active-buffer)))
+    q-active-buffer
+    (let ((helm-candidate-separator " ")
+          (helm-q-pass-required-p (and current-prefix-arg t)))
+      (helm :sources (helm-make-source "helm-q" 'helm-q-source)
+            :prompt "Please select a connection for current session: "
+            :buffer "*helm q*"))
+    q-active-buffer))
 
-(defun org-babel-prep-session:q (params)
+(defun org-babel-q-search-helm-q-instances (session-name)
+  "Search session-name in helm-q list.
+Argument SESSION-NAME: session name."
+  (let* ((helm-current-source (helm-make-source "helm-q" 'helm-q-source))
+         (helm-pattern session-name)
+         (candidates (progn (funcall (helm-attr 'init))
+                            (helm-attr 'candidates))))
+    (append (cl-loop for (nil . instance) in candidates
+                     if (search (cdr (assoc 'address instance)) session-name)
+                     collect instance)
+            (cl-loop for (candidate . instance) in candidates
+                     if (funcall (helm-attr 'match) candidate)
+                     collect instance))))
+
+(defun org-babel-q-find-running-sessions (session-name)
+  "Find out running session.
+Argument SESSION-NAME: the session name."
+  (loop for buffer in (buffer-list)
+        for buffer-name = (buffer-name buffer)
+        if (with-current-buffer buffer
+             (and (equal 'q-shell-mode major-mode)
+                  (search session-name buffer-name)))
+          collect buffer-name))
+
+(cl-defun org-babel-q-initiate-session-by-name (session-name)
+  "Handle condition when there is a valid session name.
+Argument SESSION-NAME: the session name."
+  (let ((running-sessions (org-babel-q-find-running-sessions session-name)))
+    (when running-sessions
+      (return-from org-babel-q-initiate-session-by-name
+        (case (length running-sessions)
+          (1 (car running-sessions))
+          ;; select one from multiple sessions.
+          (2 (let* ((running-buffer nil)
+                    (helm-source `((:name . "Select valid running sessions")
+                                   (candidates . ,running-sessions)
+                                   (action . (lambda (candidate) (setf running-buffer candidate))))))
+               (helm :sources '(helm-source) :prompt "Please select a session: ")
+               running-buffer))))))
+  (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
+    (case (length matched-instances)
+      (0 (call-interactively 'q)
+         (with-current-buffer q-active-buffer
+           (rename-buffer (format "*%s*" session-name)))
+         q-active-buffer)
+      (1 (helm-q-source-action-qcon (car matched-instances))
+         q-active-buffer)
+      (t
+       (call-interactively 'helm-q)
+       q-active-buffer))))
+
+(defun org-babel-q-initiate-session (session params)
+  "Return the initialized session buffer.
+Argument SESSION: the session name.
+Argument PARAMS: the parameters for code block."
+  (save-current-buffer
+    (let* ((session-list (assoc :session params))
+           (session (if session-list
+                      (cdr session-list)
+                      ;; default value for `:session', not depending on `org-babel-default-header-args'.
+                      "none")))
+      (cond ((null session)
+             (org-babel-q-initiate-session-without-name))
+            ((string= "none" session)
+             nil)
+            (t (org-babel-q-initiate-session-by-name session))))))
+
+(defun org-babel-prep-session:q (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS.
 Arguments SESSION: the session name.
 Arguments PARAMS: the input parameters."
-  (org-babel-q-initiate-session params))
+  (org-babel-q-initiate-session session params))
 
 (defun org-babel-q-execute-in-session (session-buffer full-body params)
   "Execute code body in a session.

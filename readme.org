@@ -111,4 +111,23 @@ a+b
 #+RESULTS:
 : 3
 
-# If =:session= argument has a value for it,
+If =:session= argument has a name, we will try to create a session which can match this name in =helm-q=, and if
+the session name does not exist as remote instance nor as Q-Shell buffer, we will create a new local instance, naming its Q-Shell buffer
+as this session name.
+
+For example
+#+begin_example
+    ,#+begin_src q :session host.dev
+    1+1
+    ,#+end_src
+#+end_example
+If a running Q-Shell buffer can match the session name =host.dev=, then we will execute codes in this buffer, otherwise, we will
+try to create a Q-Shell buffer which can match via =helm-q=, if no match via =helm-q=, we will then create a new local instance, naming
+its Q-Shell buffer as this session name.
+
+#+begin_src q :session host.dev
+1+1
+#+end_src
+
+#+RESULTS:
+: 2
