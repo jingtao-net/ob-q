@@ -125,7 +125,7 @@ If a running Q-Shell buffer can match the session name =host.dev=, then we will 
 try to create a Q-Shell buffer which can match via =helm-q=, if no match via =helm-q=, we will then create a new local instance, naming
 its Q-Shell buffer as this session name.
 
-#+begin_src q :session host.dev
+#+begin_src q :session host.dev :exports results
 1+1
 #+end_src
 
