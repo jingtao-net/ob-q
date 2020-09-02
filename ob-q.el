@@ -133,7 +133,7 @@ Argument SESSION-NAME: the session name."
   (with-current-buffer q-active-buffer
     (let ((new-buffer-name (format "*%s*" session-name)))
       (rename-buffer new-buffer-name)
-      (q-activate-this-buffer)))
+      (setf q-active-buffer new-buffer-name)))
   q-active-buffer)
 
 (cl-defun org-babel-q-initiate-session-by-name (session-name)
