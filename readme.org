@@ -111,16 +111,17 @@ a+b
 #+RESULTS:
 : 3
 
-If =:session= argument has a name, we will try to create a session which can match via =helm-q=.
+If =:session= argument has a name, we will try to create a session which can match via =helm-q=, the fields used to search
+in =instances-meta.json= are defined in variable =ob-q-remote-session-pattern=, which are =service,region,env= by default.
 
 For example
 #+begin_example
-    ,#+begin_src q :session host.dev
+    ,#+begin_src q :session prod
     1+1
     ,#+end_src
 #+end_example
 
-#+begin_src q :session host.dev :exports results
+#+begin_src q :session prod :exports results
 1+1
 #+end_src
 
