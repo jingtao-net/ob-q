@@ -108,6 +108,25 @@ Argument SESSION-NAME: the session name."
                   (search session-name buffer-name)))
           collect buffer-name))
 
+(defvar ob-q-current-session-name)
+(defun q-shell-name-for-ob-q (orig-fun &rest args)
+  "Add session name to q shell buffer.
+Argument ORIG-FUN: original function.
+Argument ARGS: original arguments."
+  (concat (apply orig-fun args) " for " ob-q-current-session-name))
+(advice-add 'q-shell-name :around #'q-shell-name-for-ob-q)
+
+(defun org-babel-q-create-local-q-shell-for-session (session-name)
+  "Create Local Q Shell buffer for a session.
+Argument SESSION-NAME: the session name."
+  (let ((ob-q-current-session-name session-name))
+    (call-interactively 'q))
+  (with-current-buffer q-active-buffer
+    (let ((new-buffer-name (format "*%s*" session-name)))
+      (rename-buffer q-active-buffer new-buffer-name)
+      (q-activate-this-buffer)))
+  q-active-buffer)
+
 (cl-defun org-babel-q-initiate-session-by-name (session-name)
   "Handle condition when there is a valid session name.
 Argument SESSION-NAME: the session name."
@@ -125,12 +144,7 @@ Argument SESSION-NAME: the session name."
                running-buffer))))))
   (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
     (case (length matched-instances)
-      (0 (call-interactively 'q)
-         (with-current-buffer q-active-buffer
-           (let ((new-buffer-name (format "*%s*" session-name)))
-             (rename-buffer q-active-buffer new-buffer-name)
-             (q-activate-this-buffer)))
-         q-active-buffer)
+      (0 (org-babel-q-create-local-q-shell-for-session session-name))
       (1 (helm-q-source-action-qcon (car matched-instances))
          q-active-buffer)
       (t

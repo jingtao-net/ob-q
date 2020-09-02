@@ -161,6 +161,35 @@ Argument SESSION-NAME: the session name."
                   (search session-name buffer-name)))
           collect buffer-name))
 #+END_SRC
+***** create a local Q-Shell buffer if no match
+When we want to create a local buffer with a special session name, we have to change the behavior to return a shell name
+by original function =q-shell-name=, to add session name as part of the buffer name.
+The current session name will be stored in a special varaible.
+#+BEGIN_SRC elisp
+(defvar ob-q-current-session-name)
+(defun q-shell-name-for-ob-q (orig-fun &rest args)
+  "Add session name to q shell buffer.
+Argument ORIG-FUN: original function.
+Argument ARGS: original arguments."
+  (concat (apply orig-fun args) " for " ob-q-current-session-name))
+(advice-add 'q-shell-name :around #'q-shell-name-for-ob-q)
+#+END_SRC
+
+The routine to create a local Q-Shell buffer
+#+BEGIN_SRC elisp
+(defun org-babel-q-create-local-q-shell-for-session (session-name)
+  "Create Local Q Shell buffer for a session.
+Argument SESSION-NAME: the session name."
+  (let ((ob-q-current-session-name session-name))
+    (call-interactively 'q))
+  (with-current-buffer q-active-buffer
+    (let ((new-buffer-name (format "*%s*" session-name)))
+      (rename-buffer q-active-buffer new-buffer-name)
+      (q-activate-this-buffer)))
+  q-active-buffer)
+#+END_SRC
+
+
 ***** main routine
 #+BEGIN_SRC elisp
 (cl-defun org-babel-q-initiate-session-by-name (session-name)
@@ -180,12 +209,7 @@ Argument SESSION-NAME: the session name."
                running-buffer))))))
   (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
     (case (length matched-instances)
-      (0 (call-interactively 'q)
-         (with-current-buffer q-active-buffer
-           (let ((new-buffer-name (format "*%s*" session-name)))
-             (rename-buffer q-active-buffer new-buffer-name)
-             (q-activate-this-buffer)))
-         q-active-buffer)
+      (0 (org-babel-q-create-local-q-shell-for-session session-name))
       (1 (helm-q-source-action-qcon (car matched-instances))
          q-active-buffer)
       (t
