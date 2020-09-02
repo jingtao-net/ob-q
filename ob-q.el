@@ -132,7 +132,7 @@ Argument SESSION-NAME: the session name."
     (call-interactively 'q))
   (with-current-buffer q-active-buffer
     (let ((new-buffer-name (format "*%s*" session-name)))
-      (rename-buffer q-active-buffer new-buffer-name)
+      (rename-buffer new-buffer-name)
       (q-activate-this-buffer)))
   q-active-buffer)
 
@@ -152,7 +152,7 @@ Argument SESSION-NAME: the session name."
                                          if (with-current-buffer buffer
                                               (and (equal 'q-shell-mode major-mode)
                                                    (search host buffer-name)))
-                                           return buffer-name)))
+                                           return buffer)))
            (if exist-qcon-buffer
              exist-qcon-buffer
              (helm-q-source-action-qcon instance)
