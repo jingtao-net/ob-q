@@ -194,10 +194,6 @@ The routine to create a local Q-Shell buffer
 Argument SESSION-NAME: the session name."
   (let ((ob-q-current-session-name session-name))
     (call-interactively 'q))
-  (with-current-buffer q-active-buffer
-    (let ((new-buffer-name (format "*%s*" session-name)))
-      (rename-buffer new-buffer-name)
-      (setf q-active-buffer new-buffer-name)))
   q-active-buffer)
 #+END_SRC
 

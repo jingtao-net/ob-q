@@ -130,10 +130,6 @@ Argument ARGS: original arguments."
 Argument SESSION-NAME: the session name."
   (let ((ob-q-current-session-name session-name))
     (call-interactively 'q))
-  (with-current-buffer q-active-buffer
-    (let ((new-buffer-name (format "*%s*" session-name)))
-      (rename-buffer new-buffer-name)
-      (setf q-active-buffer new-buffer-name)))
   q-active-buffer)
 
 (cl-defun org-babel-q-initiate-session-by-name (session-name)
