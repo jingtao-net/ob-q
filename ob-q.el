@@ -31,7 +31,7 @@
   "Customized variables for ob-q."
   :group 'ob-q)
 
-(defcustom ob-q-remote-session-pattern '(service region env)
+(defcustom ob-q-remote-session-pattern '(service env region)
   "The name matching pattern used when searching session name in `instances-meta.json' in helm-q."
   :group 'ob-q
   :type 'list)
@@ -100,8 +100,10 @@ Argument SESSION-NAME: session name."
          (candidates (progn (funcall (helm-attr 'init))
                             (helm-attr 'candidates))))
     (cl-loop for (nil . instance) in candidates
-             if (cl-loop for pattern in ob-q-remote-session-pattern
-                         thereis (string= session-name (cdr (assoc pattern instance))))
+             for session-name-for-instance = (string-join (cl-loop for pattern in ob-q-remote-session-pattern
+                                                                   collect (cdr (assoc pattern instance)))
+                                                          ".")
+             if (string= session-name-for-instance session-name)
              collect instance)))
 
 (defun org-babel-q-find-running-session (session-name)

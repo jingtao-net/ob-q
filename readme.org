@@ -112,7 +112,10 @@ a+b
 : 3
 
 If =:session= argument has a name, we will try to create a session which can match via =helm-q=, the fields used to search
-in =instances-meta.json= are defined in variable =ob-q-remote-session-pattern=, which are =service,region,env= by default.
+in =instances-meta.json= are defined in variable =ob-q-remote-session-pattern=, which are =service,region,env= and
+match in a strict format delimited with dot (.) as in :session,
+for example session name should be =TAQ.HDB.prod.nam= if =service= is =TAQ.HDB=, =region= is =prod=,
+and =env= is =nam=.
 
 For example
 #+begin_example
@@ -121,7 +124,7 @@ For example
     ,#+end_src
 #+end_example
 
-#+begin_src q :session prod :exports results
+#+begin_src q :session TAQ.HDB.prod.nam :exports results
 1+1
 #+end_src
 
