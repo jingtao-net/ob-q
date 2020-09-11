@@ -27,15 +27,6 @@
 (require 'q-mode)
 (require 'helm-q)
 
-(defgroup ob-q nil
-  "Customized variables for ob-q."
-  :group 'ob-q)
-
-(defcustom ob-q-remote-session-pattern '(service env region)
-  "The name matching pattern used when searching session name in `instances-meta.json' in helm-q."
-  :group 'ob-q
-  :type 'list)
-
 (defvar org-babel-q-eoe "\"org-babel-q-eoe\"" "String to indicate that evaluation has completed.")
 
 (add-to-list 'org-babel-tangle-lang-exts '("q" . "q"))
@@ -100,22 +91,22 @@ Argument SESSION-NAME: session name."
          (candidates (progn (funcall (helm-attr 'init))
                             (helm-attr 'candidates))))
     (cl-loop for (nil . instance) in candidates
-             for session-name-for-instance = (string-join (cl-loop for pattern in ob-q-remote-session-pattern
-                                                                   collect (cdr (assoc pattern instance)))
-                                                          ".")
+             for session-name-for-instance = (helm-q-shell-buffer-id instance)
              if (string= session-name-for-instance session-name)
              collect instance)))
 
 (defun org-babel-q-find-running-session (session-name)
   "Find out running session.
 Argument SESSION-NAME: the session name."
-  (loop with session-buffer-name = (format "*q-%s*" session-name)
+  (loop with q-session-buffer-name = (format "*q-%s*" session-name)
+        with helm-q-session-buffer-name = (helm-q-shell-buffer-name session-name)
         for buffer in (buffer-list)
         for buffer-name = (buffer-name buffer)
         if (with-current-buffer buffer
              (and (equal 'q-shell-mode major-mode)
-                  (string= session-buffer-name buffer-name)))
-          return buffer-name))
+                  (or (string= q-session-buffer-name buffer-name)
+                      (string= helm-q-session-buffer-name buffer-name))))
+        return buffer-name))
 
 (defvar ob-q-current-session-name nil)
 (defun q-shell-name-for-ob-q (orig-fun &rest args)
@@ -140,26 +131,18 @@ Argument SESSION-NAME: the session name."
   (let ((running-session (org-babel-q-find-running-session session-name)))
     (when running-session
       (return-from org-babel-q-initiate-session-by-name running-session)))
+
   (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
     (case (length matched-instances)
       (0 (org-babel-q-create-local-q-shell-for-session session-name))
-      (1 (let* ((instance (car matched-instances))
-                (host (cdr (assoc 'address instance)))
-                (exist-qcon-buffer (loop for buffer in (buffer-list)
-                                         for buffer-name = (buffer-name buffer)
-                                         if (with-current-buffer buffer
-                                              (and (equal 'q-shell-mode major-mode)
-                                                   (search host buffer-name)))
-                                           return buffer)))
-           (if exist-qcon-buffer
-             exist-qcon-buffer
-             (helm-q-source-action-qcon instance)
-             q-active-buffer)))
+      (1 (helm-q-source-action-qcon (car matched-instances))
+         q-active-buffer)
       (t
        (let ((helm-candidate-separator " ")
              (helm-q-pass-required-p (and current-prefix-arg t)))
-         (helm :sources (helm-make-source "helm-q" 'helm-q-source)
-               :input session-name
+         (helm :sources (helm-make-source "helm-q" 'helm-q-source
+                          :instance-list #'(lambda () (helm-q-instance-list matched-instances)))
+               :prompt "Multiple matches found for session name, please choose one:  "
                :buffer "*helm q*"))
        q-active-buffer))))
 
