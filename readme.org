@@ -29,6 +29,9 @@ Firstly please make sure =ob-q.el= is in you load path, then you can enable supp
  (append org-babel-load-languages
          '((q . t))))
 #+END_SRC
+
+#+RESULTS:
+
 * Executing source code
 The language name should be =q= for a =q= code block.
 #+BEGIN_EXAMPLE
@@ -80,8 +83,7 @@ echo -e -n "1+1\na:1\nb:2\na+b" | q
 #+end_src
 
 #+RESULTS:
-| 2 |
-| 3 |
+: 2
 
 But of course a code block directly specified with =q= is more convenient but it will only return one output
 (as argument =:results= is =value= by default).
