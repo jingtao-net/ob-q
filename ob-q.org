@@ -254,14 +254,32 @@ Arguments PARAMS: the input parameters."
 Argument SESSION-BUFFER: the session associated buffer.
 Argument FULL-BODY: the expanded code body
 Argument PARAMS: the input parameters."
-  (let ((results-list
-         (org-babel-comint-with-output
-             (session-buffer org-babel-q-eoe t full-body)
-           (dolist (code (list full-body org-babel-q-eoe))
-             (insert (org-babel-chomp code))
-             (comint-send-input nil t)))))
+  (let* ((start-position (with-current-buffer session-buffer
+                           (point-max)))
+         (results-list
+           (org-babel-comint-with-output
+               (session-buffer org-babel-q-eoe t full-body)
+             (dolist (code (list full-body org-babel-q-eoe))
+               (insert (org-babel-chomp code))
+               (comint-send-input t t)))))
+    (org-babel-q-remove-eoe session-buffer start-position)
     (org-babel-q-remove-prompts-in-result session-buffer results-list)))
 #+END_SRC
+*** remove eoe indicator lines
+#+BEGIN_SRC elisp
+(defun org-babel-q-remove-eoe (session-buffer start-position)
+  "Remove eoe lines.
+Argument SESSION-BUFFER: the session buffer.
+Argument START-POSITION: the start position to remove."
+  (with-current-buffer session-buffer
+    (save-excursion
+      (goto-char start-position)
+      (while (search-forward org-babel-q-eoe nil t)
+        (replace-match "")
+        (when (= (line-beginning-position) (line-end-position))
+          (delete-line))))))
+#+END_SRC
+
 ** How to show result
 Please note that if [[https://orgmode.org/manual/Results-of-Evaluation.html][result]] type is =value=, we will only collect the last valid output line as results.
 #+BEGIN_SRC elisp
