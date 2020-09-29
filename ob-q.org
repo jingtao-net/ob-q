@@ -261,7 +261,7 @@ Argument PARAMS: the input parameters."
                (session-buffer org-babel-q-eoe t full-body)
              (dolist (code (list full-body org-babel-q-eoe))
                (insert (org-babel-chomp code))
-               (comint-send-input t t)))))
+               (comint-send-input nil t)))))
     (org-babel-q-remove-eoe session-buffer start-position)
     (org-babel-q-remove-prompts-in-result session-buffer results-list)))
 #+END_SRC
