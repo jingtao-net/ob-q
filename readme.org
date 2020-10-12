@@ -130,6 +130,9 @@ For example
 1+1
 #+end_src
 
+#+RESULTS:
+: 2
+
 If a session name can't match any running Q-Shell buffer or candidates in =helm-q=,
 we will then create a new local instance and rename its buffer to session name surrounding with =*=.
 
