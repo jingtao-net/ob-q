@@ -194,7 +194,7 @@ Argument START-POSITION: the start position to remove."
       (while (search-forward org-babel-q-eoe nil t)
         (replace-match "")
         (when (= (line-beginning-position) (line-end-position))
-          (delete-line))))))
+          (kill-line))))))
 
 (defun org-babel-transfer-results:q (results params)
   "Convert raw results to Emacs Lisp Result.

@@ -274,7 +274,7 @@ Argument START-POSITION: the start position to remove."
       (while (search-forward org-babel-q-eoe nil t)
         (replace-match "")
         (when (= (line-beginning-position) (line-end-position))
-          (delete-line))))))
+          (kill-line))))))
 #+END_SRC
 
 ** How to show result
