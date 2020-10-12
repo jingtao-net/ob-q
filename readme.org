@@ -90,8 +90,13 @@ But of course a code block directly specified with =q= is more convenient but it
 
 The command to execute is specified by Emacs Lisp variable [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L113][q-program]] in library [[https://github.com/psaris/q-mode][q-mode]].
 ** Executing in a session
-If =:session= argument is provided without additional value, =ob-q= will perform evaluation using [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] created by [[https://github.com/psaris/q-mode/][q-mode]],
-if no active buffer exists, we will try to create one via [[https://github.com/emacs-q/helm-q.el][helm-q]].
+If =:session= argument is provided without additional value, =ob-q= will perform evaluation using a local anonymous session created by [[https://github.com/psaris/q-mode/][q-mode]],
+and the anonymous session name is specified by varaible =ob-q-default-session-name=.
+By default the anonymous session's name is =anonymous=.
+
+The reason to use anonymous session is to start with clean slate before sharing the state between blocks.
+That clean slate of course implies that the anonymous session can't be in remote instance,
+because remote instances already have state---no clean slate
 
 For example:
 #+begin_example
@@ -124,9 +129,6 @@ For example
 #+begin_src q :session TAQ.HDB.prod.nam :exports results
 1+1
 #+end_src
-
-#+RESULTS:
-: 2
 
 If a session name can't match any running Q-Shell buffer or candidates in =helm-q=,
 we will then create a new local instance and rename its buffer to session name surrounding with =*=.

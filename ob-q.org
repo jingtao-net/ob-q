@@ -16,6 +16,7 @@
   - [[#string-to-indicate-that-evaluation-has-completed][String to indicate that evaluation has completed.]]
   - [[#optionally-define-a-file-extension-for-this-language][optionally define a file extension for this language]]
   - [[#optionally-declare-default-header-arguments][optionally declare default header arguments]]
+  - [[#default-session-name-for-anonymous-session][default session name for anonymous session]]
 - [[#code-block-body-expansion][Code Block Body Expansion]]
 - [[#source-code-execution][Source Code Execution]]
   - [[#entrance-routine][entrance routine]]
@@ -51,7 +52,10 @@
 #+BEGIN_SRC elisp
 (defvar org-babel-default-header-args:q '())
 #+END_SRC
-
+** default session name for anonymous session
+#+BEGIN_SRC elisp
+(defvar ob-q-default-session-name "anonymous")
+#+END_SRC
 
 * Code Block Body Expansion
 If there are any predefined variables in =params=, we will add them in front of =body=.
@@ -120,32 +124,63 @@ Argument PARAMS: the input parameters."
 #+END_SRC
 ** Session based evaluation
 *** initialization
-The initialization will try to return a Q-Shell buffer created by [[https://github.com/psaris/q-mode/][q-mode]] based on parameter =session=.
-**** if session has no name
-We will try to use [[https://github.com/psaris/q-mode/blob/master/q-mode.el#L220][current active buffer]] if it exists,
-otherwise we will create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]].
+**** entrance routine
+This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp
-(defun org-babel-q-initiate-session-without-name ()
-  "Handle condition when no session name."
-  ;; try to use current `q-active-buffer'.
-  (labels ((%alive-q-active-buffer-p ()
-             (and q-active-buffer
-                  (process-live-p (get-buffer-process q-active-buffer)))))
-    (if (%alive-q-active-buffer-p)
-      q-active-buffer
-      (let ((helm-candidate-separator " ")
-            (helm-q-pass-required-p (and current-prefix-arg t)))
-        (helm :sources (helm-make-source "helm-q" 'helm-q-source)
-              :prompt "Please select a connection for current session: "
-              :buffer "*helm q*")
-        ;; Check it again because sometimes user may press `<ESC>' in helm.
-        (if (%alive-q-active-buffer-p)
-          q-active-buffer)))))
+(defun org-babel-q-initiate-session (session params)
+  "Return the initialized session buffer.
+Argument SESSION: the session name.
+Argument PARAMS: the parameters for code block."
+  (save-current-buffer
+    (let* ((session-list (assoc :session params))
+           (session (if session-list
+                      (cdr session-list)
+                      ;; default value for `:session', not depending on `org-babel-default-header-args'.
+                      "none")))
+      (cond ((string= "none" session) nil)
+            (t (org-babel-q-initiate-session-by-name session))))))
 #+END_SRC
-**** if session has a valid name
-We will try to find out any matched Q-Shell buffer and return it,
-otherwise we will try to create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]] with this name to filter out available servers.
-***** find out matched instances from helm-q based on session name
+**** initialization by session name
+The initialization will try to return a Q-Shell buffer created by [[https://github.com/psaris/q-mode/][q-mode]] based on parameter =session=.
+- If session name is null \\
+  We will use a default name(based on varialbe =ob-q-default-session-name=) as an anonymous local session.
+  The reason why anonymous session is only for local instance is that all remote instances are named, so can't be anonymous, of course.
+  Recall that sessions are in org-babel to separate state.
+  The reason to use anonymous session is to start with clean slate before sharing the state between blocks.
+  That clean slate of course implies that the anonymous session can't be in remote instance,
+  because remote instances already have state---no clean slate
+- If session has a valid name \\
+  We will try to find out any matched Q-Shell buffer and return it,
+- otherwise \\
+  We will try to create a new active buffer via [[https://github.com/emacs-q/helm-q.el][helm-q]] with this name to filter out available servers.
+
+We assume that the anonymous session name will always match none of remote instances in helm-q.
+#+BEGIN_SRC elisp
+(cl-defun org-babel-q-initiate-session-by-name (session-name)
+  "Handle condition when there is a valid session name.
+Argument SESSION-NAME: the session name."
+  (setf session-name (or session-name ob-q-default-session-name))
+  (let* ((running-session (org-babel-q-find-running-session session-name)))
+    (when running-session
+      (return-from org-babel-q-initiate-session-by-name running-session)))
+
+  (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
+    (case (length matched-instances)
+      (0 (org-babel-q-create-local-q-shell-for-session session-name))
+      (1 (helm-q-source-action-qcon (car matched-instances))
+         ;; We don't use `q-active-buffer' here because helm-q will fail to connect to it sometimes.
+         (helm-q-shell-buffer-name (helm-q-shell-buffer-id (car matched-instances))))
+      (t
+       (let ((helm-candidate-separator " ")
+             (helm-q-pass-required-p (and current-prefix-arg t)))
+         (helm :sources (helm-make-source "helm-q" 'helm-q-source
+                          :instance-list #'(lambda () (helm-q-instance-list matched-instances)))
+               :prompt "Multiple matches found for session name, please choose one:  "
+               :buffer "*helm q*"))
+       ;; FIXME: how to deal with when helm-q fails to connect to the remote instance?
+       q-active-buffer))))
+#+END_SRC
+**** find out matched instances from helm-q based on session name
 #+BEGIN_SRC elisp
 (defun org-babel-q-search-helm-q-instances (session-name)
   "Search session-name in helm-q list.
@@ -158,7 +193,7 @@ Argument SESSION-NAME: session name."
              if (string= session-name-for-instance session-name)
              collect instance)))
 #+END_SRC
-***** find out running Q-Shell buffer based on session name
+**** find out running Q-Shell buffer based on session name
 #+BEGIN_SRC elisp
 (defun org-babel-q-find-running-session (session-name)
   "Find out running session.
@@ -173,7 +208,7 @@ Argument SESSION-NAME: the session name."
                       (string= helm-q-session-buffer-name buffer-name))))
         return buffer-name))
 #+END_SRC
-***** create a local Q-Shell buffer if no match
+**** create a local Q-Shell buffer if no match
 When we want to create a local buffer with a special session name, we have to change the behavior to return a shell name
 by original function =q-shell-name=, to add session name as part of the buffer name.
 The current session name will be stored in a special varaible.
@@ -200,48 +235,6 @@ Argument SESSION-NAME: the session name."
 #+END_SRC
 
 
-***** main routine
-#+BEGIN_SRC elisp
-(cl-defun org-babel-q-initiate-session-by-name (session-name)
-  "Handle condition when there is a valid session name.
-Argument SESSION-NAME: the session name."
-  (let ((running-session (org-babel-q-find-running-session session-name)))
-    (when running-session
-      (return-from org-babel-q-initiate-session-by-name running-session)))
-
-  (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
-    (case (length matched-instances)
-      (0 (org-babel-q-create-local-q-shell-for-session session-name))
-      (1 (helm-q-source-action-qcon (car matched-instances))
-         q-active-buffer)
-      (t
-       (let ((helm-candidate-separator " ")
-             (helm-q-pass-required-p (and current-prefix-arg t)))
-         (helm :sources (helm-make-source "helm-q" 'helm-q-source
-                          :instance-list #'(lambda () (helm-q-instance-list matched-instances)))
-               :prompt "Multiple matches found for session name, please choose one:  "
-               :buffer "*helm q*"))
-       q-active-buffer))))
-#+END_SRC
-**** entrance of initialization
-This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
-#+BEGIN_SRC elisp
-(defun org-babel-q-initiate-session (session params)
-  "Return the initialized session buffer.
-Argument SESSION: the session name.
-Argument PARAMS: the parameters for code block."
-  (save-current-buffer
-    (let* ((session-list (assoc :session params))
-           (session (if session-list
-                      (cdr session-list)
-                      ;; default value for `:session', not depending on `org-babel-default-header-args'.
-                      "none")))
-      (cond ((null session)
-             (org-babel-q-initiate-session-without-name))
-            ((string= "none" session)
-             nil)
-            (t (org-babel-q-initiate-session-by-name session))))))
-#+END_SRC
 *** prepare
 This routine can be invoked by Emacs Lisp function =org-babel-initiate-session=.
 #+BEGIN_SRC elisp

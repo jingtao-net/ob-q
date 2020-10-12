@@ -33,6 +33,8 @@
 
 (defvar org-babel-default-header-args:q '())
 
+(defvar ob-q-default-session-name "anonymous")
+
 (defun org-babel-expand-body:q (body params)
   "Expand BODY according to PARAMS, return the expanded body.
 Argument BODY: the code body
@@ -82,22 +84,42 @@ Argument PARAMS: the input parameters."
       (call-process-shell-command q-program stdin-file (current-buffer))
       (buffer-string))))
 
-(defun org-babel-q-initiate-session-without-name ()
-  "Handle condition when no session name."
-  ;; try to use current `q-active-buffer'.
-  (labels ((%alive-q-active-buffer-p ()
-             (and q-active-buffer
-                  (process-live-p (get-buffer-process q-active-buffer)))))
-    (if (%alive-q-active-buffer-p)
-      q-active-buffer
-      (let ((helm-candidate-separator " ")
-            (helm-q-pass-required-p (and current-prefix-arg t)))
-        (helm :sources (helm-make-source "helm-q" 'helm-q-source)
-              :prompt "Please select a connection for current session: "
-              :buffer "*helm q*")
-        ;; Check it again because sometimes user may press `<ESC>' in helm.
-        (if (%alive-q-active-buffer-p)
-          q-active-buffer)))))
+(defun org-babel-q-initiate-session (session params)
+  "Return the initialized session buffer.
+Argument SESSION: the session name.
+Argument PARAMS: the parameters for code block."
+  (save-current-buffer
+    (let* ((session-list (assoc :session params))
+           (session (if session-list
+                      (cdr session-list)
+                      ;; default value for `:session', not depending on `org-babel-default-header-args'.
+                      "none")))
+      (cond ((string= "none" session) nil)
+            (t (org-babel-q-initiate-session-by-name session))))))
+
+(cl-defun org-babel-q-initiate-session-by-name (session-name)
+  "Handle condition when there is a valid session name.
+Argument SESSION-NAME: the session name."
+  (setf session-name (or session-name ob-q-default-session-name))
+  (let* ((running-session (org-babel-q-find-running-session session-name)))
+    (when running-session
+      (return-from org-babel-q-initiate-session-by-name running-session)))
+
+  (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
+    (case (length matched-instances)
+      (0 (org-babel-q-create-local-q-shell-for-session session-name))
+      (1 (helm-q-source-action-qcon (car matched-instances))
+         ;; We don't use `q-active-buffer' here because helm-q will fail to connect to it sometimes.
+         (helm-q-shell-buffer-name (helm-q-shell-buffer-id (car matched-instances))))
+      (t
+       (let ((helm-candidate-separator " ")
+             (helm-q-pass-required-p (and current-prefix-arg t)))
+         (helm :sources (helm-make-source "helm-q" 'helm-q-source
+                          :instance-list #'(lambda () (helm-q-instance-list matched-instances)))
+               :prompt "Multiple matches found for session name, please choose one:  "
+               :buffer "*helm q*"))
+       ;; FIXME: how to deal with when helm-q fails to connect to the remote instance?
+       q-active-buffer))))
 
 (defun org-babel-q-search-helm-q-instances (session-name)
   "Search session-name in helm-q list.
@@ -139,43 +161,6 @@ Argument SESSION-NAME: the session name."
   (let ((ob-q-current-session-name session-name))
     (call-interactively 'q))
   q-active-buffer)
-
-(cl-defun org-babel-q-initiate-session-by-name (session-name)
-  "Handle condition when there is a valid session name.
-Argument SESSION-NAME: the session name."
-  (let ((running-session (org-babel-q-find-running-session session-name)))
-    (when running-session
-      (return-from org-babel-q-initiate-session-by-name running-session)))
-
-  (let ((matched-instances (org-babel-q-search-helm-q-instances session-name)))
-    (case (length matched-instances)
-      (0 (org-babel-q-create-local-q-shell-for-session session-name))
-      (1 (helm-q-source-action-qcon (car matched-instances))
-         q-active-buffer)
-      (t
-       (let ((helm-candidate-separator " ")
-             (helm-q-pass-required-p (and current-prefix-arg t)))
-         (helm :sources (helm-make-source "helm-q" 'helm-q-source
-                          :instance-list #'(lambda () (helm-q-instance-list matched-instances)))
-               :prompt "Multiple matches found for session name, please choose one:  "
-               :buffer "*helm q*"))
-       q-active-buffer))))
-
-(defun org-babel-q-initiate-session (session params)
-  "Return the initialized session buffer.
-Argument SESSION: the session name.
-Argument PARAMS: the parameters for code block."
-  (save-current-buffer
-    (let* ((session-list (assoc :session params))
-           (session (if session-list
-                      (cdr session-list)
-                      ;; default value for `:session', not depending on `org-babel-default-header-args'.
-                      "none")))
-      (cond ((null session)
-             (org-babel-q-initiate-session-without-name))
-            ((string= "none" session)
-             nil)
-            (t (org-babel-q-initiate-session-by-name session))))))
 
 (defun org-babel-prep-session:q (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS.
