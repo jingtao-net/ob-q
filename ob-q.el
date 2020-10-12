@@ -85,15 +85,19 @@ Argument PARAMS: the input parameters."
 (defun org-babel-q-initiate-session-without-name ()
   "Handle condition when no session name."
   ;; try to use current `q-active-buffer'.
-  (if (and q-active-buffer
-           (process-live-p (get-buffer-process q-active-buffer)))
-    q-active-buffer
-    (let ((helm-candidate-separator " ")
-          (helm-q-pass-required-p (and current-prefix-arg t)))
-      (helm :sources (helm-make-source "helm-q" 'helm-q-source)
-            :prompt "Please select a connection for current session: "
-            :buffer "*helm q*"))
-    q-active-buffer))
+  (labels ((%alive-q-active-buffer-p ()
+             (and q-active-buffer
+                  (process-live-p (get-buffer-process q-active-buffer)))))
+    (if (%alive-q-active-buffer-p)
+      q-active-buffer
+      (let ((helm-candidate-separator " ")
+            (helm-q-pass-required-p (and current-prefix-arg t)))
+        (helm :sources (helm-make-source "helm-q" 'helm-q-source)
+              :prompt "Please select a connection for current session: "
+              :buffer "*helm q*")
+        ;; Check it again because sometimes user may press `<ESC>' in helm.
+        (if (%alive-q-active-buffer-p)
+          q-active-buffer)))))
 
 (defun org-babel-q-search-helm-q-instances (session-name)
   "Search session-name in helm-q list.
