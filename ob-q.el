@@ -113,13 +113,19 @@ Argument SESSION-NAME: the session name."
          (helm-q-shell-buffer-name (helm-q-shell-buffer-id (car matched-instances))))
       (t
        (let ((helm-candidate-separator " ")
+             (selected-instance nil)
              (helm-q-pass-required-p (and current-prefix-arg t)))
          (helm :sources (helm-make-source "helm-q" 'helm-q-source
+                          :action '(("Select a remote instance" . (lambda (instance) (setf selected-instance instance))))
                           :instance-list #'(lambda () (helm-q-instance-list matched-instances)))
                :prompt "Multiple matches found for session name, please choose one:  "
-               :buffer "*helm q*"))
-       ;; FIXME: how to deal with when helm-q fails to connect to the remote instance?
-       q-active-buffer))))
+               :buffer "*helm q*")
+         (if selected-instance
+           (progn
+             (helm-q-source-action-qcon selected-instance)
+             ;; We don't use `q-active-buffer' here because helm-q will fail to connect to it sometimes.
+             (helm-q-shell-buffer-name (helm-q-shell-buffer-id selected-instance)))
+           nil))))))
 
 (defun org-babel-q-search-helm-q-instances (session-name)
   "Search session-name in helm-q list.
